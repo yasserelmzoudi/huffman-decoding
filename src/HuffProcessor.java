@@ -79,7 +79,6 @@ public class HuffProcessor {
 	{
 		PriorityQueue<HuffNode> pq = new PriorityQueue<>();
 
-
 		for (int i = 0; i < counts.length; i++)
 		{
 			if (counts[i] > 0)
@@ -92,7 +91,7 @@ public class HuffProcessor {
 		{
 			HuffNode left = pq.remove();
 			HuffNode right = pq.remove();
-			HuffNode t = new HuffNode(left.myValue,left.myWeight + right.myWeight, left, right);
+			HuffNode t = new HuffNode(0,left.myWeight + right.myWeight, left, right);
 			pq.add(t);
 		}
 
@@ -100,20 +99,56 @@ public class HuffProcessor {
 		return root;
 	}
 
-	private String[] makeCodingsFromTree(HuffNode root) {
+	private String[] makeCodingsFromTree(HuffNode root)
+	{
+		String [] encodings = new String[ALPH_SIZE + 1];
+		codingHelper(root, "", encodings);
+		return encodings;
 	}
 
-	private void writeHeader(HuffNode root, BitOutputStream out) {
+	private void codingHelper(HuffNode root, String s, String[] encodings)
+	{
+		if (root.myRight == null && root.myLeft == null)
+		{
+			encodings[root.myValue] = s;
+			return;
+		}
+
+		codingHelper(root.myLeft, s + "0", encodings);
+		codingHelper(root.myRight, s + "1", encodings);
 	}
 
-	private void writeCompressedBits(String[] codings, BitInputStream in, BitOutputStream out) {
+	private void writeHeader(HuffNode root, BitOutputStream out)
+	{
+		if (root.myRight == null && root.myLeft == null)
+		{
+			out.writeBits(1, 1);
+			out.writeBits(BITS_PER_WORD + 1, root.myValue);
+			return;
+		}
+		else
+		{
+			out.writeBits(1, 0);
+		}
+
+		writeHeader(root.myLeft, out);
+		writeHeader(root.myRight, out);
 	}
 
+	private void writeCompressedBits(String[] codings, BitInputStream in, BitOutputStream out)
+	{
+		int value = in.readBits(BITS_PER_WORD);
 
+		while( value != -1)
+		{
+			String code = codings[value];
+			out.writeBits(code.length(), Integer.parseInt(code, 2));
+			value = in.readBits(BITS_PER_WORD);
+		}
 
-
-
-
+		String code = codings[PSEUDO_EOF];
+		out.writeBits(code.length(), Integer.parseInt(code, 2));
+	}
 
 	/**
 	 * Decompresses a file. Output file must be identical bit-by-bit to the
